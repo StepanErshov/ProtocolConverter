@@ -21,7 +21,7 @@ def set_page_title():
     st.title("🛎️ Release Convertor")
 
 def get_uploaded_file():
-    uploaded_file = st.file_uploader("Upload Domain Excel Matrix", type=["xlsx"])
+    uploaded_file = st.file_uploader("Upload Domain Excel Matrix", type=["xlsx"], accept_multiple_files=True)
     if uploaded_file:
         return uploaded_file
 
@@ -404,188 +404,188 @@ def save_single_ecu(ecu_name, ecu_matrices, ecu_versions, domain_short, converte
 if __name__ == "__main__":
     set_page_title()
     uploaded_file = get_uploaded_file()
-
-    if uploaded_file:
-        try:
-            # Create progress container
-            progress_container = st.empty()
-            progress_bar = progress_container.progress(0)
-            status_text = st.empty()
-            
-            total_start = time.time()
-            status_text.text("Reading uploaded file...")
-            print("File uploaded")
-            df_matrix = pd.read_excel(uploaded_file, sheet_name="Matrix")
-            df_history = pd.read_excel(uploaded_file, sheet_name="History")
-            
-            status_text.text("Identifying ECUs...")
-            ecus = identify_ecus(df_matrix)
-            domain_matrix = load_workbook(uploaded_file)
-            # Получить номер столбца для каждого ecu
-            ecu_col_index = {ecu: df_matrix.columns.get_loc(ecu) for ecu in ecus}
-
-            status_text.text("Creating ECU matrices...")
-            print("Ecu matrices start creating")
-            # Создать пустые excel матрицы для каждого ecu
-            ecu_matrices = {}
-            # Create ThreadPoolExecutor
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                # Submit all ECU template loading tasks
-                future_to_ecu = {
-                    executor.submit(get_ecu_matrix_template, uploaded_file, ecu_col_index): ecu_name
-                    for ecu_name in ecu_col_index
-                }
+    for file in uploaded_file:
+        if file:
+            try:
+                # Create progress container
+                progress_container = st.empty()
+                progress_bar = progress_container.progress(0)
+                status_text = st.empty()
                 
-                # Process results as they complete
-                for future in concurrent.futures.as_completed(future_to_ecu):
-                    ecu_name = future_to_ecu[future]
-                    try:
-                        ecu_matrices[ecu_name] = future.result()
-                        progress = len(ecu_matrices) / len(ecu_col_index) * 100
-                        progress_bar.progress(int(progress))
-                        status_text.text(f"Initialized {len(ecu_matrices)}/{len(ecu_col_index)} ECU matrices")
-                        print(f"Initialized matrix for {ecu_name}")
-                    except Exception as e:
-                        print(f"Error loading template for {ecu_name}: {str(e)}")
-            print("Ecu matrices created")
-
-            # Настроить лист "Matrix" под ecu
-            status_text.text("Processing matrix sheets...")
-            ecu_matrices = process_matrix_sheet(df_matrix, domain_matrix, ecu_matrices, ecu_col_index, progress_bar)
-            
-            status_text.text("Processing history sheets...")
-            ecu_matrices = process_history_sheet(df_history, domain_matrix, ecu_matrices, ecu_col_index, progress_bar)
-            if not ecu_matrices:
-                st.warning(f"🕱 'History' sheet not found in ECU {ecu_matrices}.")
-            
-            status_text.text("Getting ECU versions...")
-            ecu_versions = get_ecu_version(df_history, ecu_matrices)
-            
-            if not create_directory:
-                st.warning("'create_directory' module is missing. Skipping file save.")
-            
-            domain_short = uploaded_file.name.split('_')[3]
-            
-            # Сохранение файлов
-            save_results = []
-            total_ecus = len(ecu_col_index)
-            
-            # Progress tracking for saving
-            # saved_count = 0
-            # converted_count = 0
-            
-            def update_progress(action):
-                saved_count = 0
-                converted_count = 0
-                if action == "saved":
-                    saved_count += 1
-                elif action == "converted":
-                    converted_count += 1
+                total_start = time.time()
+                status_text.text("Reading uploaded file...")
+                print("File uploaded")
+                df_matrix = pd.read_excel(file, sheet_name="Matrix")
+                df_history = pd.read_excel(file, sheet_name="History")
                 
-                progress_text = f"Saving files... ({saved_count}/{total_ecus} saved)"
-                if saved_count == total_ecus:
-                    progress_text = f"Converting to DBC... ({converted_count}/{total_ecus} converted)"
-                
-                status_text.text(progress_text)
-                progress = (saved_count + converted_count) / (total_ecus * 2) * 100
-                progress_bar.progress(int(progress))
-            
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = {
-                    executor.submit(
-                        save_single_ecu,
-                        ecu_name,
-                        ecu_matrices,
-                        ecu_versions,
-                        domain_short,
-                        ExcelToDBCConverter,
-                        None
-                    ): ecu_name for ecu_name in ecu_col_index
-                }
+                status_text.text("Identifying ECUs...")
+                ecus = identify_ecus(df_matrix)
+                domain_matrix = load_workbook(file)
+                # Получить номер столбца для каждого ecu
+                ecu_col_index = {ecu: df_matrix.columns.get_loc(ecu) for ecu in ecus}
 
-                for future in concurrent.futures.as_completed(futures):
-                    ecu_name = futures[future]
-                    try:
-                        result = future.result()
-                        if result is None:
-                            st.error(f"❌ {ecu_name}: не удалось создать матрицу")
-                            save_results.append((ecu_name, None, None, None, "Matrix creation failed"))
-                        else:
-                            if len(result) != 5:
-                                st.error(f"❌ {ecu_name}: неверное количество данных: {len(result)}")
-                                save_results.append((ecu_name, None, None, None, "Invalid result format"))
-                            else:
-                                save_results.append(result)
-                    except Exception as e:
-                        st.error(f"❌ Ошибка при обработке {ecu_name}: {str(e)}")
-                        save_results.append((ecu_name, None, None, None, f"Exception: {str(e)}"))
-
-            proccesed_time = time.time() - total_start
-            print("proccesed_time", proccesed_time)
-
-            progress_bar.empty()
-            status_text.empty()
-
-            st.success(f"Domain matrix ECU split completed, obtained {len(ecu_col_index)} ECUs with DBC files.")
-            st.info(f"Time spent: {proccesed_time:.2f} seconds")
-            st.info(f"XLSX files saved: {len([r for r in save_results if r[1] is not None])}")
-            st.info(f"DBC files generated: {len([r for r in save_results if r[2] is not None])}")
-                        
-            import zipfile
-            from io import BytesIO
-
-            zip_buffer = BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for result in save_results:
-                    if len(result) < 5:
-                        continue
-                    ecu_name, save_time, dbc_time, xlsx_path, dbc_path_or_error = result
-
-                    if xlsx_path and isinstance(xlsx_path, str) and os.path.exists(xlsx_path):
-                        try:
-                            relative_path = os.path.relpath(xlsx_path, create_directory.creator.PATH_DOC)
-                            zip_file.write(xlsx_path, arcname=relative_path)
-                        except Exception as e:
-                            print(f"❌ Не удалось добавить XLSX в ZIP: {e}")
-
-                    if isinstance(dbc_path_or_error, str) and os.path.exists(dbc_path_or_error):
-                        try:
-                            relative_path = os.path.relpath(dbc_path_or_error, create_directory.creator.PATH_DOC)
-                            zip_file.write(dbc_path_or_error, arcname=relative_path)
-                        except Exception as e:
-                            print(f"❌ Не удалось добавить DBC в ZIP: {e}")
-
-            zip_buffer.seek(0)
-
-            st.download_button(
-                label="📥 Скачать всё с папками (ZIP)",
-                data=zip_buffer,
-                file_name=f"Generated_CAN_Files_{ecu_name}.zip",
-                mime="application/zip",
-                disabled=zip_buffer.getbuffer().nbytes == 0
-            )
-
-
-            # Show download buttons for DBC files
-            for ecu_name in ecu_col_index:
-                ecu_base = ecu_name.split("_")[0] if '_' in ecu_name else ecu_name
-                domain_folder_name = get_domain_folder_name(ecu_base, domain_short)
-                ecu_folder_name = get_ecu_folder_name(domain_folder_name, ecu_base)
-                
-                if ecu_folder_name:
-                    date_str = datetime.now().strftime("%d%m%Y")
-                    output_ecu_filename = f"ATOM_CAN_Matrix_{ecu_versions[ecu_name]}_{date_str}_{ecu_name}"
-                    dbc_path = f"{create_directory.creator.PATH_DOC}\\{domain_folder_name}\\{ecu_folder_name}\\{output_ecu_filename}.dbc"
+                status_text.text("Creating ECU matrices...")
+                print("Ecu matrices start creating")
+                # Создать пустые excel матрицы для каждого ecu
+                ecu_matrices = {}
+                # Create ThreadPoolExecutor
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    # Submit all ECU template loading tasks
+                    future_to_ecu = {
+                        executor.submit(get_ecu_matrix_template, file, ecu_col_index): ecu_name
+                        for ecu_name in ecu_col_index
+                    }
                     
-                    # if os.path.exists(dbc_path):
-                    #     with open(dbc_path, "rb") as f:
-                    #         st.download_button(
-                    #             label=f"Download DBC for {ecu_name}",
-                    #             data=f,
-                    #             file_name=f"{output_ecu_filename}.dbc",
-                    #             mime="application/octet-stream"
-                            # )
-        except Exception as e:
-            progress_bar.empty()
-            status_text.empty()
-            st.error(f"🕭 Error processing file: {e}")
+                    # Process results as they complete
+                    for future in concurrent.futures.as_completed(future_to_ecu):
+                        ecu_name = future_to_ecu[future]
+                        try:
+                            ecu_matrices[ecu_name] = future.result()
+                            progress = len(ecu_matrices) / len(ecu_col_index) * 100
+                            progress_bar.progress(int(progress))
+                            status_text.text(f"Initialized {len(ecu_matrices)}/{len(ecu_col_index)} ECU matrices")
+                            print(f"Initialized matrix for {ecu_name}")
+                        except Exception as e:
+                            print(f"Error loading template for {ecu_name}: {str(e)}")
+                print("Ecu matrices created")
+
+                # Настроить лист "Matrix" под ecu
+                status_text.text("Processing matrix sheets...")
+                ecu_matrices = process_matrix_sheet(df_matrix, domain_matrix, ecu_matrices, ecu_col_index, progress_bar)
+                
+                status_text.text("Processing history sheets...")
+                ecu_matrices = process_history_sheet(df_history, domain_matrix, ecu_matrices, ecu_col_index, progress_bar)
+                if not ecu_matrices:
+                    st.warning(f"🕱 'History' sheet not found in ECU {ecu_matrices}.")
+                
+                status_text.text("Getting ECU versions...")
+                ecu_versions = get_ecu_version(df_history, ecu_matrices)
+                
+                if not create_directory:
+                    st.warning("'create_directory' module is missing. Skipping file save.")
+                
+                domain_short = file.name.split('_')[3]
+                
+                # Сохранение файлов
+                save_results = []
+                total_ecus = len(ecu_col_index)
+                
+                # Progress tracking for saving
+                # saved_count = 0
+                # converted_count = 0
+                
+                def update_progress(action):
+                    saved_count = 0
+                    converted_count = 0
+                    if action == "saved":
+                        saved_count += 1
+                    elif action == "converted":
+                        converted_count += 1
+                    
+                    progress_text = f"Saving files... ({saved_count}/{total_ecus} saved)"
+                    if saved_count == total_ecus:
+                        progress_text = f"Converting to DBC... ({converted_count}/{total_ecus} converted)"
+                    
+                    status_text.text(progress_text)
+                    progress = (saved_count + converted_count) / (total_ecus * 2) * 100
+                    progress_bar.progress(int(progress))
+                
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    futures = {
+                        executor.submit(
+                            save_single_ecu,
+                            ecu_name,
+                            ecu_matrices,
+                            ecu_versions,
+                            domain_short,
+                            ExcelToDBCConverter,
+                            None
+                        ): ecu_name for ecu_name in ecu_col_index
+                    }
+
+                    for future in concurrent.futures.as_completed(futures):
+                        ecu_name = futures[future]
+                        try:
+                            result = future.result()
+                            if result is None:
+                                st.error(f"❌ {ecu_name}: не удалось создать матрицу")
+                                save_results.append((ecu_name, None, None, None, "Matrix creation failed"))
+                            else:
+                                if len(result) != 5:
+                                    st.error(f"❌ {ecu_name}: неверное количество данных: {len(result)}")
+                                    save_results.append((ecu_name, None, None, None, "Invalid result format"))
+                                else:
+                                    save_results.append(result)
+                        except Exception as e:
+                            st.error(f"❌ Ошибка при обработке {ecu_name}: {str(e)}")
+                            save_results.append((ecu_name, None, None, None, f"Exception: {str(e)}"))
+
+                proccesed_time = time.time() - total_start
+                print("proccesed_time", proccesed_time)
+
+                progress_bar.empty()
+                status_text.empty()
+
+                st.success(f"Domain matrix ECU split completed, obtained {len(ecu_col_index)} ECUs with DBC files.")
+                st.info(f"Time spent: {proccesed_time:.2f} seconds")
+                st.info(f"XLSX files saved: {len([r for r in save_results if r[1] is not None])}")
+                st.info(f"DBC files generated: {len([r for r in save_results if r[2] is not None])}")
+                            
+                import zipfile
+                from io import BytesIO
+
+                zip_buffer = BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for result in save_results:
+                        if len(result) < 5:
+                            continue
+                        ecu_name, save_time, dbc_time, xlsx_path, dbc_path_or_error = result
+
+                        if xlsx_path and isinstance(xlsx_path, str) and os.path.exists(xlsx_path):
+                            try:
+                                relative_path = os.path.relpath(xlsx_path, create_directory.creator.PATH_DOC)
+                                zip_file.write(xlsx_path, arcname=relative_path)
+                            except Exception as e:
+                                print(f"❌ Не удалось добавить XLSX в ZIP: {e}")
+
+                        if isinstance(dbc_path_or_error, str) and os.path.exists(dbc_path_or_error):
+                            try:
+                                relative_path = os.path.relpath(dbc_path_or_error, create_directory.creator.PATH_DOC)
+                                zip_file.write(dbc_path_or_error, arcname=relative_path)
+                            except Exception as e:
+                                print(f"❌ Не удалось добавить DBC в ZIP: {e}")
+
+                zip_buffer.seek(0)
+
+                st.download_button(
+                    label="📥 Скачать всё с папками (ZIP)",
+                    data=zip_buffer,
+                    file_name=f"Generated_CAN_Files_{ecu_name}.zip",
+                    mime="application/zip",
+                    disabled=zip_buffer.getbuffer().nbytes == 0
+                )
+
+
+                # Show download buttons for DBC files
+                for ecu_name in ecu_col_index:
+                    ecu_base = ecu_name.split("_")[0] if '_' in ecu_name else ecu_name
+                    domain_folder_name = get_domain_folder_name(ecu_base, domain_short)
+                    ecu_folder_name = get_ecu_folder_name(domain_folder_name, ecu_base)
+                    
+                    if ecu_folder_name:
+                        date_str = datetime.now().strftime("%d%m%Y")
+                        output_ecu_filename = f"ATOM_CAN_Matrix_{ecu_versions[ecu_name]}_{date_str}_{ecu_name}"
+                        dbc_path = f"{create_directory.creator.PATH_DOC}\\{domain_folder_name}\\{ecu_folder_name}\\{output_ecu_filename}.dbc"
+                        
+                        # if os.path.exists(dbc_path):
+                        #     with open(dbc_path, "rb") as f:
+                        #         st.download_button(
+                        #             label=f"Download DBC for {ecu_name}",
+                        #             data=f,
+                        #             file_name=f"{output_ecu_filename}.dbc",
+                        #             mime="application/octet-stream"
+                                # )
+            except Exception as e:
+                progress_bar.empty()
+                status_text.empty()
+                st.error(f"🕭 Error processing file: {e}")

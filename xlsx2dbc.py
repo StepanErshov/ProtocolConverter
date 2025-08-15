@@ -488,7 +488,7 @@ class ExcelToDBCConverter:
                 "Max": df["Signal Max. Value (phys)\n物理最大值"],
                 "Unit": df["Unit\n单位"],
                 "Receiver": receivers,
-                "Byte Order": df["Byte Order\n排列格式(Intel/Motorola)"],
+                "Byte Order": df["Byte Order\n排列格式\n(Intel/Motorola)"],
                 "Data Type": df["Data Type\n数据类型"],
                 "Message Type": df["Msg Type\n报文类型"].ffill(),
                 "Send Type": df["Msg Send Type\n报文发送类型"].ffill(),
