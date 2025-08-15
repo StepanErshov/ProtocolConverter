@@ -143,7 +143,7 @@ def validate_input_data(uploaded_file):
             "Start Byte\n起始字节",
             "Start Bit\n起始位",
             "Bit Length (Bit)\n信号长度",
-            "Byte Order\n排列格式(Intel/Motorola)",
+            "Byte Order\n排列格式\n(Intel/Motorola)",
             "Data Type\n数据类型",
             "Msg Length (Byte)\n报文长度",
         ]

@@ -448,20 +448,20 @@ class ExcelToDBCConverter:
             .fillna(0)
             .astype(int)
         )
-        df["Msg Cycle Time Fast(ms)\n报文发送的快速周期"] = (
+        df["Msg Cycle Time Fast (ms)\n报文发送的快速周期"] = (
             pd.to_numeric(
-                df["Msg Cycle Time Fast(ms)\n报文发送的快速周期"], errors="coerce"
+                df["Msg Cycle Time Fast (ms)\n报文发送的快速周期"], errors="coerce"
             )
             .fillna(0)
             .astype(int)
         )
-        df["Msg Nr. Of Reption\n报文快速发送的次数"] = (
-            pd.to_numeric(df["Msg Nr. Of Reption\n报文快速发送的次数"], errors="coerce")
+        df["Msg Nr. of Reption\n报文快速发送的次数"] = (
+            pd.to_numeric(df["Msg Nr. of Reption\n报文快速发送的次数"], errors="coerce")
             .fillna(0)
             .astype(int)
         )
-        df["Msg Delay Time(ms)\n报文延时时间"] = (
-            pd.to_numeric(df["Msg Delay Time(ms)\n报文延时时间"], errors="coerce")
+        df["Msg Delay Time (ms)\n报文延时时间"] = (
+            pd.to_numeric(df["Msg Delay Time (ms)\n报文延时时间"], errors="coerce")
             .fillna(0)
             .astype(int)
         )
@@ -473,17 +473,17 @@ class ExcelToDBCConverter:
                 "Signal Name": df["Signal Name\n信号名称"],
                 "Cycle Type": df["Msg Cycle Time (ms)\n报文周期时间"].ffill(),
                 "Msg Time Fast": df[
-                    "Msg Cycle Time Fast(ms)\n报文发送的快速周期"
+                    "Msg Cycle Time Fast (ms)\n报文发送的快速周期"
                 ].ffill(),
-                "Msg Reption": df["Msg Nr. Of Reption\n报文快速发送的次数"].ffill(),
-                "Msg Delay": df["Msg Delay Time(ms)\n报文延时时间"].ffill(),
+                "Msg Reption": df["Msg Nr. of Reption\n报文快速发送的次数"].ffill(),
+                "Msg Delay": df["Msg Delay Time (ms)\n报文延时时间"].ffill(),
                 "Start Byte": df["Start Byte\n起始字节"],
                 "Start Bit": df["Start Bit\n起始位"],
                 "Length": df["Bit Length (Bit)\n信号长度"],
                 "Factor": df["Resolution\n精度"],
                 "Offset": df["Offset\n偏移量"],
                 "Initinal": df["Initial Value (Hex)\n初始值"],
-                "Invalid": df["Invalid Value(Hex)\n无效值"],
+                "Invalid": df["Invalid Value (Hex)\n无效值"],
                 "Min": df["Signal Min. Value (phys)\n物理最小值"],
                 "Max": df["Signal Max. Value (phys)\n物理最大值"],
                 "Unit": df["Unit\n单位"],
@@ -817,7 +817,7 @@ class ExcelToDBCConverter:
             "Start Byte\n起始字节",
             "Start Bit\n起始位",
             "Bit Length (Bit)\n信号长度",
-            "Byte Order\n排列格式(Intel/Motorola)",
+            "Byte Order\n排列格式\n(Intel/Motorola)",
             "Data Type\n数据类型",
             "Msg Length (Byte)\n报文长度",
         ]
